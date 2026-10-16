@@ -1,0 +1,53 @@
+name: Engine
+
+on:
+  push:
+    branches: [main]
+    paths: ["engine/**", ".github/workflows/engine.yml"]
+  pull_request:
+    paths: ["engine/**", ".github/workflows/engine.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.compiler }} / ${{ matrix.build }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+        build: [Release, Sanitize]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S engine -B engine/build
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+          -DCMAKE_BUILD_TYPE=${{ matrix.build == 'Sanitize' && 'Debug' || 'Release' }}
+          -DSUBSPOT_SANITIZE=${{ matrix.build == 'Sanitize' && 'ON' || 'OFF' }}
+
+      - name: Build
+        run: cmake --build engine/build -j
+
+      - name: Test
+        run: ctest --test-dir engine/build --output-on-failure
+
+  python-bindings:
+    name: pybind11 module
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pybind11
+      - name: Build and smoke test
+        run: |
+          cmake -S engine -B engine/build-py -DSUBSPOT_BUILD_TESTS=OFF -DSUBSPOT_BUILD_PYTHON=ON \
+            -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
+          cmake --build engine/build-py -j
+          cd engine/build-py
+          python -c "import _engine as e; r = e.simulate_match(1.5, 1.2, 50000, 2); x = e.exact_poisson_outcomes(1.5, 1.2); assert abs(r.outcomes.home_win - x.home_win) < 0.01"

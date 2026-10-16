@@ -1,0 +1,34 @@
+# Install once with: pip install pre-commit && pre-commit install
+# Bump hook versions with: pre-commit autoupdate
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: ^infra/  # CloudFormation intrinsics (!Ref, !Sub) are checked by cfn-lint instead
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: detect-private-key
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v18.1.8
+    hooks:
+      - id: clang-format
+        types_or: [c++]
+
+  - repo: https://github.com/aws-cloudformation/cfn-lint
+    rev: v1.18.1
+    hooks:
+      - id: cfn-lint
+        files: ^infra/.*\.ya?ml$
